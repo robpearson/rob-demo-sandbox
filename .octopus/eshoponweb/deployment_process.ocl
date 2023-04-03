@@ -4,8 +4,9 @@ step "check-deployment-window" {
     action {
         action_type = "Octopus.Script"
         environments = ["production"]
+        notes = "Check production deployment window. If we're not inside the time, fail the deployment."
         properties = {
-            Octopus.Action.Script.ScriptBody = "Write-Host \"Hello world!\""
+            Octopus.Action.Script.ScriptBody = "Write-Host \"Checking production deployment window\""
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
@@ -18,6 +19,7 @@ step "production-approval" {
 
     action {
         action_type = "Octopus.Manual"
+        environments = ["production"]
         properties = {
             Octopus.Action.Manual.BlockConcurrentDeployments = "False"
             Octopus.Action.Manual.Instructions = "Please review and approve this deployment."
@@ -27,126 +29,28 @@ step "production-approval" {
     }
 }
 
-step "update-infrastructure-with-terraform" {
-    name = "Update infrastructure with Terraform"
+step "update-infrastructure-using-terraform" {
+    name = "Update infrastructure using Terraform"
 
     action {
-        action_type = "Octopus.TerraformApply"
         properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{AWS.Region}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "True"
-            Octopus.Action.GoogleCloud.ImpersonateServiceAccount = "False"
-            Octopus.Action.GoogleCloud.UseVMServiceAccount = "True"
-            Octopus.Action.RunOnServer = "false"
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Terraform.AllowPluginDownloads = "True"
-            Octopus.Action.Terraform.AzureAccount = "False"
-            Octopus.Action.Terraform.GoogleCloudAccount = "False"
-            Octopus.Action.Terraform.ManagedAccount = "AWS"
-            Octopus.Action.Terraform.PlanJsonOutput = "False"
-            Octopus.Action.Terraform.RunAutomaticFileSubstitution = "True"
-            Octopus.Action.Terraform.Template = <<-EOT
-                terraform {
-                  # This module is now only being tested with Terraform 0.13.x. However, to make upgrading easier, we are setting
-                  # 0.12.26 as the minimum version, as that version added support for required_providers with source URLs, making it
-                  # forwards compatible with 0.13.x code.
-                  required_version = ">= 0.12.26"
-                }
-                
-                # website::tag::1:: The simplest possible Terraform module: it just outputs "Hello, World!"
-                output "hello_world" {
-                  value = "Hello, World!"
-                }
-                EOT
-            Octopus.Action.Terraform.TemplateParameters = "{}"
+            Octopus.Action.Template.Id = "ActionTemplates-1841"
+            Octopus.Action.Template.Version = "14"
+            Run.Runbook.Api.Key = "#{Project.API.DNS}"
+            Run.Runbook.AutoApproveManualInterventions = "No"
+            Run.Runbook.Base.Url = "#{Octopus.Web.ServerUri}"
+            Run.Runbook.CancelInSeconds = "1800"
+            Run.Runbook.DateTime = "N/A"
+            Run.Runbook.Environment.Name = "#{Octopus.Environment.Name}"
+            Run.Runbook.Machines = "N/A"
+            Run.Runbook.ManualIntervention.EnvironmentToUse = "#{Octopus.Environment.Name}"
+            Run.Runbook.Name = "Create infrastructure"
+            Run.Runbook.Project.Name = "#{Octopus.Project.Name}"
+            Run.Runbook.Space.Name = "#{Octopus.Space.Name}"
+            Run.Runbook.UsePublishedSnapShot = "True"
+            Run.Runbook.Waitforfinish = "True"
         }
-        worker_pool_variable = ""
-    }
-}
-
-step "get-aws-resource-ids" {
-    name = "Get AWS Resource Ids"
-
-    action {
-        action_type = "Octopus.AwsRunScript"
-        notes = "Get ID values for the VPC, Security Group, Subnets, and Internet Gateway and set them as [output variables](https://octopus.com/docs/projects/variables/output-variables) for use in subsequent steps."
-        properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{Project.AWS.Region.Code}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "True"
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                # Get the VPC
-                $awsVpc = (aws ec2 describe-vpcs --filter Name=tag:Name,Values="demo-vpc" --output json | ConvertFrom-Json)
-                
-                # Set output variable for Vpc id
-                Write-Host "Setting output variable VpcId with value $($awsVpc.Vpcs[0].VpcId)"
-                Set-OctopusVariable -name "VpcId" -value $awsVpc.Vpcs[0].VpcId
-                
-                # Get Security Group Id
-                $awsSecurityGroup = (aws ec2 describe-security-groups --filter Name=tag:Name,Values="demo-security-group" --output json | ConvertFrom-Json)
-                
-                # Set output variable for security group id
-                Write-Host "Setting output variable SecurityGroupId with value $($awsSecurityGroup.SecurityGroups[0].GroupId)"
-                Set-OctopusVariable -Name "SecurityGroupId" -value $awsSecurityGroup.SecurityGroups[0].GroupId
-                
-                # Get Subnets
-                $awsSubnets = (aws ec2 describe-subnets --filter Name=vpc-id,Values="$($awsVpc.Vpcs[0].VpcId)" Name=tag:Name,Values="demo-*" --output json | ConvertFrom-Json)
-                
-                # Set the subnet id output variable
-                Write-Host "Setting output variable SubnetIds with value $($awsSubnets.Subnets[0].SubnetId)"
-                Set-OctopusVariable -Name "SubnetId" -value "$($awsSubnets.Subnets[0].SubnetId)"
-                
-                # Get the Internet Gateway
-                $awsInternetGateway = (aws ec2 describe-internet-gateways --filter Name="attachment.vpc-id",Values="$($awsVpc.Vpcs[0].VpcId)" --output json | ConvertFrom-Json)
-                
-                # Set the internet gateway output variable
-                Write-Host "Setting output variable InternetGatewayId with value $($awsInternetGateway.InternetGateways[0].InternetGatewayId)"
-                Set-OctopusVariable -Name "InternetGatewayId" -value $awsInternetGateway.InternetGateways[0].InternetGatewayId
-                
-                
-                
-                
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-            OctopusUseBundledTooling = "False"
-        }
-        worker_pool_variable = "Project.Worker.Pool"
-    }
-}
-
-step "get-endpoint-address" {
-    name = "Get endpoint address"
-
-    action {
-        action_type = "Octopus.AwsRunScript"
-        notes = "Get the RDS endpoint (database server name) and set as an [output variable](https://octopus.com/docs/projects/variables/output-variables) for use in the ECS Service deployments."
-        properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{Project.AWS.Region.Code}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "True"
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                # Get region
-                $awsRegion = $OctopusParameters['Project.AWS.Region.Code']
-                
-                Write-Host "Selected region is: $awsRegion"
-                
-                # Get reference to the instance
-                $databaseInstances = (aws rds describe-db-instances --region "$awsRegion") | ConvertFrom-JSON
-                 
-                # Get MariaDB instance
-                $databaseInstance = $databaseInstances.DBInstances | Where-Object {$_.Engine -eq "sqlserver-ex"}
-                
-                # Set the output variable
-                Write-Host "Setting output variable AWS.RDS.Endpoint.Address to $($databaseInstance.Endpoint.Address)"
-                Set-OctopusVariable -name "AWS.RDS.EndPoint.Address" -value $databaseInstance.Endpoint.Address
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-            OctopusUseBundledTooling = "False"
-        }
-        worker_pool_variable = "Project.Worker.Pool"
+        worker_pool = "hosted-windows"
     }
 }
 
@@ -261,49 +165,6 @@ step "deploy-vote-service-clone-1" {
                 type = "waitWithTimeout"
             }
         }
-    }
-}
-
-step "get-sql-dns-clone-1" {
-    name = "Get API DNS"
-
-    action {
-        action_type = "Octopus.AwsRunScript"
-        notes = "Get the DNS entry of the API and set as an [output variable](https://octopus.com/docs/projects/variables/output-variables) to pass as an environment variable to the eShopOnWeb front end."
-        properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{Project.AWS.Region.Code}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "True"
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                # Declare local variables
-                $serviceName = $OctopusParameters['Project.AWS.ECS.Api.Task.Name']
-                $serviceName = $serviceName.Replace("-", "")
-                $region = $OctopusParameters['Project.AWS.Region.Code']
-                $clusterName = $OctopusParameters['Project.AWS.ECS.Cluster.Name']
-                
-                # Get list of services
-                $services = (aws ecs list-services --cluster $clusterName --region $region | ConvertFrom-Json)
-                
-                # Get the specific service we're looking for
-                $service = $services.serviceArns | Where-Object {$_ -like "*$($serviceName)*"}
-                
-                # Get the task the service is running
-                $task = (aws ecs list-tasks --cluster $clusterName --region $region --service-name $service.Substring($service.LastIndexOf("/") + 1) | ConvertFrom-Json)
-                
-                # Get the specifics of the task
-                $taskSpecs = (aws ecs describe-tasks --cluster $clusterName  --region $region --tasks "$($task.taskArns)" | ConvertFrom-Json)
-                
-                $dnsName = $taskSpecs.tasks[0].attachments[0].details | Where-Object {$_.Name -eq "privateDnsName"}
-                
-                Set-OctopusVariable -name "API_DNS" -value $dnsName.value
-                
-                
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-            OctopusUseBundledTooling = "False"
-        }
-        worker_pool_variable = "Project.Worker.Pool"
     }
 }
 
@@ -424,50 +285,5 @@ step "deploy-eshop-api-service-clone-1" {
                 type = "waitWithTimeout"
             }
         }
-    }
-}
-
-step "get-api-dns-clone-1" {
-    name = "Get Web Public DNS"
-
-    action "get-web-public-dns" {
-        action_type = "Octopus.AwsRunScript"
-        notes = "Get the public DNS of the eShopOnWeb frontend ECS service and display the URL link."
-        properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{Project.AWS.Region.Code}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "True"
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                # Declare local variables
-                $serviceName = $OctopusParameters['Project.AWS.ECS.Web.Task.Name']
-                $serviceName = $serviceName.Replace("-", "")
-                $region = $OctopusParameters['Project.AWS.Region.Code']
-                $clusterName = $OctopusParameters['Project.AWS.ECS.Cluster.Name']
-                
-                # Get list of services
-                $services = (aws ecs list-services --cluster $clusterName --region $region | ConvertFrom-Json)
-                
-                # Get the specific service we're looking for
-                $service = $services.serviceArns | Where-Object {$_ -like "*$($serviceName)*"}
-                
-                # Get the task the service is running
-                $task = (aws ecs list-tasks --cluster $clusterName --region $region --service-name $service.Substring($service.LastIndexOf("/") + 1) | ConvertFrom-Json)
-                
-                # Get the specifics of the task
-                $taskSpecs = (aws ecs describe-tasks --cluster $clusterName  --region $region --tasks "$($task.taskArns)" | ConvertFrom-Json)
-                
-                # Get the network interface id
-                $networkInterfaceId = $taskSpecs.tasks[0].attachments[0].details | Where-Object {$_.Name -eq "networkInterfaceId"}
-                
-                # Get the network interface details
-                $networkInterface = (aws ec2 describe-network-interfaces --network-interface-ids $networkInterfaceId.value --region $region | ConvertFrom-Json)
-                
-                Write-Highlight "[eShopOnWeb in ECS](http://$($networkInterface.NetworkInterfaces[0].Association.PublicDnsName))"
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-            OctopusUseBundledTooling = "False"
-        }
-        worker_pool_variable = "Project.Worker.Pool"
     }
 }
