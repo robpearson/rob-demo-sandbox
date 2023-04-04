@@ -54,26 +54,6 @@ step "update-infrastructure-using-terraform" {
     }
 }
 
-step "update-rds-database" {
-    name = "Update RDS database"
-
-    action {
-        action_type = "Octopus.AwsRunScript"
-        properties = {
-            Octopus.Action.Aws.AssumeRole = "False"
-            Octopus.Action.Aws.Region = "#{AWS.Region}"
-            Octopus.Action.AwsAccount.UseInstanceRole = "False"
-            Octopus.Action.AwsAccount.Variable = "Project.AWS.Account"
-            Octopus.Action.RunOnServer = "false"
-            Octopus.Action.Script.ScriptBody = "Write-Host \"Hello world!\""
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-            OctopusUseBundledTooling = "False"
-        }
-        worker_pool_variable = ""
-    }
-}
-
 step "deploy-asset-data-collector" {
     name = "Deploy Asset data collector"
 
@@ -110,6 +90,7 @@ step "deploy-maintenance-service" {
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "maintenance-logger-service"
+            Octopus.Action.RunOnServer = "false"
         }
         worker_pool_variable = ""
     }
@@ -123,6 +104,7 @@ step "deploy-maintenance-data-collector" {
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "energy-data-collection"
+            Octopus.Action.RunOnServer = "false"
         }
         worker_pool_variable = ""
     }
@@ -136,6 +118,27 @@ step "deploy-ticket-system-legacy" {
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "legacy-ticket-system"
+            Octopus.Action.RunOnServer = "false"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "update-rds-database" {
+    name = "Update RDS database"
+
+    action {
+        action_type = "Octopus.AwsRunScript"
+        properties = {
+            Octopus.Action.Aws.AssumeRole = "False"
+            Octopus.Action.Aws.Region = "#{AWS.Region}"
+            Octopus.Action.AwsAccount.UseInstanceRole = "False"
+            Octopus.Action.AwsAccount.Variable = "Project.AWS.Account"
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = "Write-Host \"Hello world!\""
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+            OctopusUseBundledTooling = "False"
         }
         worker_pool_variable = ""
     }
