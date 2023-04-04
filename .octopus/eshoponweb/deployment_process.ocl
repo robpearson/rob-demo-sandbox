@@ -74,19 +74,6 @@ step "update-rds-database" {
     }
 }
 
-step "deploy-asset-microservice" {
-    name = "Deploy Asset microservice"
-
-    action {
-        action_type = "Octopus.DeployRelease"
-        properties = {
-            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
-            Octopus.Action.DeployRelease.ProjectId = "asset-microservice"
-        }
-        worker_pool_variable = ""
-    }
-}
-
 step "deploy-asset-data-collector" {
     name = "Deploy Asset data collector"
 
@@ -95,6 +82,60 @@ step "deploy-asset-data-collector" {
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "asset-data-collection"
+            Octopus.Action.RunOnServer = "false"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "deploy-asset-microservice" {
+    name = "Deploy Asset microservice"
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "asset-microservice"
+            Octopus.Action.RunOnServer = "false"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "deploy-maintenance-service" {
+    name = "Deploy maintenance service"
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "maintenance-logger-service"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "deploy-maintenance-data-collector" {
+    name = "Deploy Maintenance data collector"
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "energy-data-collection"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "deploy-ticket-system-legacy" {
+    name = "Deploy ticket system (legacy)"
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "legacy-ticket-system"
         }
         worker_pool_variable = ""
     }
