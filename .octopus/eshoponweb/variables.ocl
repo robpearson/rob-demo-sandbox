@@ -70,3 +70,15 @@ variable "Project.Worker.Pool" {
 
     value "aws-worker-pool" {}
 }
+
+variable "Project.AWS.Account" {
+    type = "AmazonWebServicesAccount"
+
+    value "aws-developer-playground" {
+        environment = ["development", "test"]
+    }
+
+    value "production-aws-account" {
+        environment = ["production"]
+    }
+}
