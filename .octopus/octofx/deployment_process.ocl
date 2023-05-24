@@ -161,15 +161,7 @@ step "deploy-trading-site" {
         name = "Smoke Test Trading Site"
         notes = "Make a request to the site to verify that it is running correctly."
         properties = {
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                $resourceGroup = "demo.octopus.app"
-                $loadBalancer = "demo-loadbalancer"
-                $addressPool = "octofx-web-production"
-                $ipConfig = "ipconfig1"
-                $nic = $OctopusParameters["OctoFX.VM.Nic"]
-                
-                az network nic ip-config address-pool add -g $resourceGroup --lb-name $loadBalancer --address-pool $addressPool --ip-config-name $ipConfig --nic-name $nic
-                EOT
+            Octopus.Action.Script.ScriptBody = "Write-Host \"Run a smoke test against the newly deployed site.\""
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
