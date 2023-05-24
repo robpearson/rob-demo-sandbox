@@ -14,8 +14,8 @@ step "approve-production-release" {
             Octopus.Action.Manual.BlockConcurrentDeployments = "True"
             Octopus.Action.Manual.Instructions = "Please provide approval notes."
             Octopus.Action.Manual.ResponsibleTeamIds = "global/demo-presenters"
+            Octopus.Action.RunOnServer = "false"
         }
-        worker_pool_variable = ""
     }
 }
 
@@ -63,6 +63,7 @@ step "deploy-rate-service" {
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "azure-devops-artifacts"
             Octopus.Action.Package.PackageId = "OctoFX.RateService"
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.WindowsService.CreateOrUpdateService = "True"
             Octopus.Action.WindowsService.Description = "OctoFX Rate Service"
             Octopus.Action.WindowsService.DesiredStatus = "Default"
@@ -141,6 +142,7 @@ step "deploy-trading-site" {
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "azure-devops-artifacts"
             Octopus.Action.Package.PackageId = "OctoFX.TradingWebsite"
+            Octopus.Action.RunOnServer = "false"
         }
         worker_pool_variable = ""
 
@@ -160,10 +162,13 @@ step "deploy-trading-site" {
         notes = "Make a request to the site to verify that it is running correctly."
         properties = {
             Octopus.Action.Script.ScriptBody = <<-EOT
-                $URI = $OctopusParameters["OctoFX.TradingSite.Url"]
-                Invoke-WebRequest -URI "${URI}" -UseBasicParsing
+                $resourceGroup = "demo.octopus.app"
+                $loadBalancer = "demo-loadbalancer"
+                $addressPool = "octofx-web-production"
+                $ipConfig = "ipconfig1"
+                $nic = $OctopusParameters["OctoFX.VM.Nic"]
                 
-                Write-Highlight "[$URI](${URI})"
+                az network nic ip-config address-pool add -g $resourceGroup --lb-name $loadBalancer --address-pool $addressPool --ip-config-name $ipConfig --nic-name $nic
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
@@ -211,7 +216,7 @@ step "send-completion-notification" {
             Octopus.Action.Email.IsHtml = "True"
             Octopus.Action.Email.Subject = "Release #{Octopus.Release.Number} has been deployed to #{Octopus.Environment.Name}"
             Octopus.Action.Email.To = "#{Octopus.Deployment.CreatedBy.EmailAddress}"
+            Octopus.Action.RunOnServer = "false"
         }
-        worker_pool_variable = ""
     }
 }
